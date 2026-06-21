@@ -1,5 +1,5 @@
 <?php
-define('DB_HOST', getenv('MYSQLHOST') ?: 'localhost');
+define('DB_HOST', getenv('MYSQLHOST') ?: '127.0.0.1');
 define('DB_USER', getenv('MYSQLUSER') ?: 'root');
 define('DB_PASS', getenv('MYSQLPASSWORD') ?: '');
 define('DB_NAME', getenv('MYSQLDATABASE') ?: 'railway');
