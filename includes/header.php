@@ -223,7 +223,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <body>
     <nav class="navbar navbar-expand-lg sticky-top shadow-sm">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="/yogi-bordir/index.php">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="index.php">
                 <i class="bi bi-scissors text-success fs-4"></i> Yogi Bordir
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
@@ -231,11 +231,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </button>
             <div class="collapse navbar-collapse" id="navMenu">
                 <ul class="navbar-nav ms-auto align-items-center gap-1">
-                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'index.php' ? 'active' : '' ?>" href="/yogi-bordir/index.php">Beranda</a></li>
-                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'galeri.php' ? 'active' : '' ?>" href="/yogi-bordir/galeri.php">Galeri Produk</a></li>
-                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'layanan.php' ? 'active' : '' ?>" href="/yogi-bordir/layanan.php">Layanan</a></li>
-                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'profil.php' ? 'active' : '' ?>" href="/yogi-bordir/profil.php">Profil Usaha</a></li>
-                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'kontak.php' ? 'active' : '' ?>" href="/yogi-bordir/kontak.php">Kontak</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'index.php' ? 'active' : '' ?>" href="index.php">Beranda</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'galeri.php' ? 'active' : '' ?>" href="galeri.php">Galeri Produk</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'layanan.php' ? 'active' : '' ?>" href="layanan.php">Layanan</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'profil.php' ? 'active' : '' ?>" href="profil.php">Profil Usaha</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'kontak.php' ? 'active' : '' ?>" href="kontak.php">Kontak</a></li>
                     <?php if ($kontak && $kontak['no_whatsapp']): ?>
                         <li class="nav-item ms-2">
                             <a href="https://wa.me/<?= $kontak['no_whatsapp'] ?>" target="_blank" class="btn btn-hijau btn-sm">
