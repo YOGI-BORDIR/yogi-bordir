@@ -1,0 +1,249 @@
+<?php
+require_once __DIR__ . '/../config/database.php';
+$db = getDB();
+$kontak = $db->query("SELECT * FROM kontak_usaha LIMIT 1")->fetch_assoc();
+$db->close();
+
+$current_page = basename($_SERVER['PHP_SELF']);
+?>
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= isset($page_title) ? $page_title . ' - Yogi Bordir' : 'Yogi Bordir Purwokerto' ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --hijau-tua: #2d5a27;
+            --hijau-muda: #4a8c3f;
+            --hijau-aksen: #6db85a;
+            --krem: #f8f5f0;
+            --teks-gelap: #1a1a1a;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--krem);
+            color: var(--teks-gelap);
+        }
+
+        /* NAVBAR */
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--hijau-tua) !important;
+        }
+
+        .navbar {
+            background: rgba(248, 245, 240, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(45, 90, 39, 0.1);
+        }
+
+        .nav-link {
+            font-weight: 500;
+            color: var(--teks-gelap) !important;
+            font-size: 0.9rem;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: var(--hijau-muda) !important;
+        }
+
+        .btn-hijau {
+            background: var(--hijau-tua);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 10px 28px;
+            font-weight: 600;
+            transition: all .3s;
+        }
+
+        .btn-hijau:hover {
+            background: var(--hijau-muda);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(45, 90, 39, 0.3);
+        }
+
+        .btn-outline-hijau {
+            border: 2px solid var(--hijau-tua);
+            color: var(--hijau-tua);
+            border-radius: 50px;
+            padding: 10px 28px;
+            font-weight: 600;
+            transition: all .3s;
+            background: transparent;
+        }
+
+        .btn-outline-hijau:hover {
+            background: var(--hijau-tua);
+            color: white;
+        }
+
+        /* HERO */
+        .hero {
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--hijau-tua) 0%, var(--hijau-muda) 60%, var(--hijau-aksen) 100%);
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: visible;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--hero-bg) center/cover;
+            opacity: 0.25;
+        }
+
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* SECTION */
+        .section-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--hijau-tua);
+        }
+
+        .section-badge {
+            background: rgba(45, 90, 39, 0.1);
+            color: var(--hijau-tua);
+            padding: 4px 16px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
+        .divider-hijau {
+            width: 60px;
+            height: 4px;
+            background: var(--hijau-aksen);
+            border-radius: 2px;
+            margin: 16px 0 24px;
+        }
+
+        /* CARD PRODUK */
+        .card-produk {
+            border: none;
+            border-radius: 16px;
+            overflow: visible;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: all .3s;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-produk img {
+            height: 220px;
+            object-fit: cover;
+            width: 100%;
+            border-radius: 16px 16px 0 0;
+            overflow: hidden;
+        }
+
+        .card-produk .card-body {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .card-produk .card-body button,
+        .card-produk .card-body a.btn {
+            margin-top: auto;
+        }
+
+        /* STATS */
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-num {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--hijau-tua);
+        }
+
+        /* FOOTER */
+        footer {
+            background: var(--hijau-tua);
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        footer a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: color .2s;
+        }
+
+        footer a:hover {
+            color: white;
+        }
+
+        /* FILTER BTN */
+        .btn-filter {
+            border: 2px solid var(--hijau-tua);
+            color: var(--hijau-tua);
+            border-radius: 50px;
+            padding: 6px 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all .2s;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .btn-filter.active,
+        .btn-filter:hover {
+            background: var(--hijau-tua);
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg sticky-top shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/yogi-bordir/index.php">
+                <i class="bi bi-scissors text-success fs-4"></i> Yogi Bordir
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navMenu">
+                <ul class="navbar-nav ms-auto align-items-center gap-1">
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'index.php' ? 'active' : '' ?>" href="/yogi-bordir/index.php">Beranda</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'galeri.php' ? 'active' : '' ?>" href="/yogi-bordir/galeri.php">Galeri Produk</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'layanan.php' ? 'active' : '' ?>" href="/yogi-bordir/layanan.php">Layanan</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'profil.php' ? 'active' : '' ?>" href="/yogi-bordir/profil.php">Profil Usaha</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 <?= $current_page == 'kontak.php' ? 'active' : '' ?>" href="/yogi-bordir/kontak.php">Kontak</a></li>
+                    <?php if ($kontak && $kontak['no_whatsapp']): ?>
+                        <li class="nav-item ms-2">
+                            <a href="https://wa.me/<?= $kontak['no_whatsapp'] ?>" target="_blank" class="btn btn-hijau btn-sm">
+                                <i class="bi bi-whatsapp me-1"></i> Chat WA
+                            </a>
+                        </li>
+                    <?php endif; ?>
+                </ul>
+            </div>
+        </div>
+    </nav>

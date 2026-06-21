@@ -1,0 +1,104 @@
+<?php
+$page_title = 'Profil Usaha';
+require_once 'includes/header.php';
+$db = getDB();
+$profil = $db->query("SELECT * FROM profil_usaha LIMIT 1")->fetch_assoc();
+
+$nama         = $profil['nama_usaha'] ?? 'Yogi Bordir';
+$tahun        = $profil['tahun_berdiri'] ?? '2010';
+$lokasi       = $profil['lokasi'] ?? 'Purwokerto, Banyumas';
+$spesialisasi = $profil['spesialisasi'] ?? 'Bordir Komputer';
+$pengiriman   = $profil['pengiriman'] ?? 'Seluruh Indonesia';
+$deskripsi1   = $profil['deskripsi1'] ?? '';
+$deskripsi2   = $profil['deskripsi2'] ?? '';
+$visi         = $profil['visi'] ?? '';
+$misi_list    = $profil['misi'] ? explode('|', $profil['misi']) : [];
+?>
+
+<div style="background: linear-gradient(135deg, var(--hijau-tua), var(--hijau-muda)); padding: 80px 0 60px;" class="text-white text-center">
+    <div class="container">
+        <h1 class="display-5 fw-bold mb-2">Profil Usaha</h1>
+        <p class="opacity-75 mb-0">Mengenal lebih dekat <?= htmlspecialchars($nama) ?> Purwokerto</p>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container py-3">
+        <div class="row align-items-center g-5 mb-5">
+            <div class="col-lg-6">
+                <img src="https://images.unsplash.com/photo-1544441893-675973e31985?w=800&q=70" alt="Workshop" class="img-fluid rounded-4 shadow-lg w-100" style="height:420px;object-fit:cover">
+            </div>
+            <div class="col-lg-6">
+                <span class="section-badge">Tentang Kami</span>
+                <h2 class="section-title"><?= htmlspecialchars($nama) ?> Purwokerto</h2>
+                <div class="divider-hijau"></div>
+                <?php if($deskripsi1): ?>
+                <p class="text-muted mb-3"><?= htmlspecialchars($deskripsi1) ?></p>
+                <?php endif; ?>
+                <?php if($deskripsi2): ?>
+                <p class="text-muted mb-4"><?= htmlspecialchars($deskripsi2) ?></p>
+                <?php endif; ?>
+                <div class="row g-3">
+                    <?php foreach([
+                        ['Tahun Berdiri', $tahun],
+                        ['Lokasi', $lokasi],
+                        ['Spesialisasi', $spesialisasi],
+                        ['Pengiriman', $pengiriman],
+                    ] as $info): ?>
+                    <div class="col-6">
+                        <div class="p-3 rounded-3" style="background:rgba(45,90,39,0.05);border-left:3px solid var(--hijau-aksen)">
+                            <small class="text-muted d-block"><?= $info[0] ?></small>
+                            <strong style="color:var(--hijau-tua)"><?= htmlspecialchars($info[1]) ?></strong>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-6">
+                <div class="p-4 rounded-4 h-100" style="background:linear-gradient(135deg,var(--hijau-tua),var(--hijau-muda));color:white">
+                    <i class="bi bi-eye fs-2 mb-3 d-block"></i>
+                    <h4 class="fw-bold mb-3">Visi</h4>
+                    <p class="mb-0" style="opacity:.85"><?= htmlspecialchars($visi) ?></p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-4 rounded-4 h-100 border" style="border-color:rgba(45,90,39,0.2)!important">
+                    <i class="bi bi-bullseye fs-2 mb-3 d-block" style="color:var(--hijau-tua)"></i>
+                    <h4 class="fw-bold mb-3" style="color:var(--hijau-tua)">Misi</h4>
+                    <ul class="text-muted small list-unstyled mb-0">
+                        <?php foreach($misi_list as $m): ?>
+                        <li class="mb-2"><i class="bi bi-check2-circle me-2" style="color:var(--hijau-aksen)"></i><?= htmlspecialchars(trim($m)) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mb-4">
+            <span class="section-badge">Nilai Kami</span>
+            <h2 class="section-title">Komitmen Kami untuk Anda</h2>
+            <div class="divider-hijau mx-auto"></div>
+        </div>
+        <div class="row g-4">
+            <?php foreach([
+                ['bi-award','Kualitas','Setiap produk dikerjakan dengan standar kualitas tinggi dan pengecekan ketat sebelum diserahkan'],
+                ['bi-lightning','Kecepatan','Proses pengerjaan efisien tanpa mengorbankan kualitas hasil bordir'],
+                ['bi-heart','Kepedulian','Kami peduli dengan kebutuhan setiap pelanggan dan siap memberikan solusi terbaik'],
+                ['bi-hand-thumbs-up','Kejujuran','Informasi harga, estimasi waktu, dan kualitas selalu kami sampaikan secara transparan'],
+            ] as $n): ?>
+            <div class="col-6 col-md-3">
+                <div class="text-center p-4 rounded-4 h-100" style="background:white;box-shadow:0 4px 20px rgba(0,0,0,0.06)">
+                    <i class="bi <?= $n[0] ?> fs-2 mb-3 d-block" style="color:var(--hijau-tua)"></i>
+                    <h6 class="fw-bold mb-2"><?= $n[1] ?></h6>
+                    <p class="text-muted small mb-0"><?= $n[2] ?></p>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+
+<?php require

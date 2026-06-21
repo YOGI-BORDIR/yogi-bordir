@@ -1,0 +1,110 @@
+<?php
+$page_title = 'Kontak';
+require_once 'includes/header.php';
+?>
+
+<div style="background: linear-gradient(135deg, var(--hijau-tua), var(--hijau-muda)); padding: 80px 0 60px;" class="text-white text-center">
+    <div class="container">
+        <h1 class="display-5 fw-bold mb-2">Hubungi Kami</h1>
+        <p class="opacity-75 mb-0">Kami siap membantu kebutuhan bordir Anda</p>
+    </div>
+</div>
+
+<section class="py-5">
+    <div class="container py-3">
+        <div class="row g-5">
+            <div class="col-lg-5">
+                <span class="section-badge">Kontak</span>
+                <h2 class="section-title">Mari Terhubung</h2>
+                <div class="divider-hijau"></div>
+                <p class="text-muted mb-4">Jangan ragu untuk menghubungi kami. Kami dengan senang hati akan membantu Anda menemukan solusi bordir yang tepat.</p>
+
+                <div class="d-flex flex-column gap-4">
+                    <?php if($kontak && $kontak['no_whatsapp']): ?>
+                    <a href="https://wa.me/<?= $kontak['no_whatsapp'] ?>" target="_blank" class="d-flex gap-3 align-items-center text-decoration-none text-dark">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:#25D366">
+                            <i class="bi bi-whatsapp text-white fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold">WhatsApp</div>
+                            <div class="text-muted small">+<?= htmlspecialchars($kontak['no_whatsapp']) ?></div>
+                        </div>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if($kontak && $kontak['link_instagram']): ?>
+                    <a href="<?= $kontak['link_instagram'] ?>" target="_blank" class="d-flex gap-3 align-items-center text-decoration-none text-dark">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)">
+                            <i class="bi bi-instagram text-white fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold">Instagram</div>
+                            <div class="text-muted small"><?= htmlspecialchars($kontak['link_instagram']) ?></div>
+                        </div>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if($kontak && $kontak['link_facebook']): ?>
+                    <a href="<?= $kontak['link_facebook'] ?>" target="_blank" class="d-flex gap-3 align-items-center text-decoration-none text-dark">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:#1877F2">
+                            <i class="bi bi-facebook text-white fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold">Facebook</div>
+                            <div class="text-muted small"><?= htmlspecialchars($kontak['link_facebook']) ?></div>
+                        </div>
+                    </a>
+                    <?php endif; ?>
+
+                    <div class="d-flex gap-3 align-items-center">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:var(--hijau-tua)">
+                            <i class="bi bi-geo-alt text-white fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold">Lokasi Workshop</div>
+                            <div class="text-muted small">Purwokerto, Banyumas, Jawa Tengah</div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3 align-items-center">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;background:var(--hijau-muda)">
+                            <i class="bi bi-clock text-white fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold">Jam Operasional</div>
+                            <div class="text-muted small">Senin – Sabtu, 08.00 – 17.00 WIB</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <!-- GOOGLE MAPS EMBED -->
+                <div class="rounded-4 overflow-hidden shadow-lg mb-4" style="height:350px">
+                    <iframe
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3957.3!2d109.2319!3d-7.4306!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zN8KwMjUnNTAuMiJTIDEwOcKwMTMnNTQuOCJF!5e0!3m2!1sid!2sid!4v1"
+                        width="100%" height="100%" style="border:0" allowfullscreen="" loading="lazy">
+                    </iframe>
+                </div>
+
+                <!-- TOMBOL AKSI -->
+                <div class="row g-3">
+                    <?php if($kontak && $kontak['no_whatsapp']): ?>
+                    <div class="col-md-6">
+                        <a href="https://wa.me/<?= $kontak['no_whatsapp'] ?>?text=Halo+Yogi+Bordir,+saya+ingin+konsultasi+pesanan+bordir" target="_blank" class="btn btn-hijau w-100 py-3">
+                            <i class="bi bi-whatsapp me-2"></i>Chat WhatsApp
+                        </a>
+                    </div>
+                    <?php endif; ?>
+                    <div class="col-md-6">
+                        <a href="https://maps.google.com/?q=Purwokerto+Banyumas" target="_blank" class="btn btn-outline-hijau w-100 py-3">
+                            <i class="bi bi-geo-alt me-2"></i>Buka Google Maps
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<?php require_once 'includes/footer.php'; ?>
