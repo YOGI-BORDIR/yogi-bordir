@@ -1,17 +1,26 @@
 <?php
 
-echo "<pre>";
+define('DB_HOST', getenv('MYSQLHOST'));
+define('DB_USER', getenv('MYSQLUSER'));
+define('DB_PASS', getenv('MYSQLPASSWORD'));
+define('DB_NAME', getenv('MYSQLDATABASE'));
+define('DB_PORT', getenv('MYSQLPORT'));
 
-echo "MYSQLHOST = ";
-var_dump(getenv('MYSQLHOST'));
+function getDB()
+{
+    $conn = new mysqli(
+        DB_HOST,
+        DB_USER,
+        DB_PASS,
+        DB_NAME,
+        (int) DB_PORT
+    );
 
-echo "\nMYSQLUSER = ";
-var_dump(getenv('MYSQLUSER'));
+    if ($conn->connect_error) {
+        die("Database Connection Failed: " . $conn->connect_error);
+    }
 
-echo "\nMYSQLDATABASE = ";
-var_dump(getenv('MYSQLDATABASE'));
+    $conn->set_charset("utf8mb4");
 
-echo "\nMYSQLPORT = ";
-var_dump(getenv('MYSQLPORT'));
-
-exit;
+    return $conn;
+}
