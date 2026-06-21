@@ -19,4 +19,21 @@ function getDB() {
     $conn->set_charset("utf8mb4");
     return $conn;
 }
+
+echo "<pre>";
+
+echo "MYSQLHOST: ";
+var_dump(getenv('MYSQLHOST'));
+
+echo "MYSQLUSER: ";
+var_dump(getenv('MYSQLUSER'));
+
+echo "MYSQLDATABASE: ";
+var_dump(getenv('MYSQLDATABASE'));
+
+echo "MYSQLPORT: ";
+var_dump(getenv('MYSQLPORT'));
+
+exit;
+
 ?>
