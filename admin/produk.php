@@ -1,19 +1,73 @@
 <?php
-$page_title = 'Manajemen Produk';
-require_once 'header_admin.php';
-$db = getDB();
+// ── Hapus produk harus diproses SEBELUM require header ──
+session_start();
+if(!isset($_SESSION['admin_id'])) {
+    header('Location: login.php');
+    exit;
+}
+require_once '../config/database.php';
 
-// HAPUS
+// ── Cloudinary delete helper ──
+function deleteFromCloudinary($publicId) {
+    $cloudName = 'dwzvzz5af';
+    $apiKey    = '815678683111228';
+    $apiSecret = 'L6AQtz2C7hUZVhqcBdbUvnj1uYo';
+
+    $timestamp = time();
+    $params    = ['public_id' => $publicId, 'timestamp' => $timestamp];
+    ksort($params);
+    $paramStr  = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    $signature = sha1($paramStr . $apiSecret);
+
+    $ch = curl_init("https://api.cloudinary.com/v1_1/{$cloudName}/image/destroy");
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, [
+        'public_id' => $publicId,
+        'api_key'   => $apiKey,
+        'timestamp' => $timestamp,
+        'signature' => $signature,
+    ]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_exec($ch);
+    curl_close($ch);
+}
+
+function getPublicIdFromUrl($url) {
+    if(!$url || strpos($url, 'cloudinary.com') === false) return null;
+    $parts = explode('/upload/', $url);
+    if(count($parts) < 2) return null;
+    $path = preg_replace('/^v\d+\//', '', $parts[1]);
+    return preg_replace('/\.[^.]+$/', '', $path);
+}
+
+// ── HAPUS PRODUK ──
 if(isset($_GET['hapus'])) {
     $id = (int)$_GET['hapus'];
-    $produk = $db->query("SELECT foto FROM produk WHERE id_produk = $id")->fetch_assoc();
-    if($produk && $produk['foto'] && file_exists('../public/uploads/'.$produk['foto'])) {
-        unlink('../public/uploads/'.$produk['foto']);
+    $db = getDB();
+
+    // Hapus semua foto produk dari Cloudinary
+    $fotos = $db->query("SELECT nama_file FROM produk_foto WHERE id_produk=$id");
+    while($f = $fotos->fetch_assoc()) {
+        $pid = getPublicIdFromUrl($f['nama_file']);
+        if($pid) deleteFromCloudinary($pid);
     }
-    $db->query("DELETE FROM produk WHERE id_produk = $id");
+    $db->query("DELETE FROM produk_foto WHERE id_produk=$id");
+
+    // Hapus size chart dari Cloudinary
+    $p = $db->query("SELECT foto, foto_size_chart FROM produk WHERE id_produk=$id")->fetch_assoc();
+    if($p) {
+        $pid = getPublicIdFromUrl($p['foto_size_chart']);
+        if($pid) deleteFromCloudinary($pid);
+    }
+
+    $db->query("DELETE FROM produk WHERE id_produk=$id");
     header('Location: produk.php?msg=hapus');
     exit;
 }
+
+$page_title = 'Manajemen Produk';
+require_once 'header_admin.php';
+$db = getDB();
 
 $msg = $_GET['msg'] ?? '';
 $produk_list = $db->query("SELECT p.*, k.nama_kategori FROM produk p JOIN kategori k ON p.id_kategori=k.id_kategori ORDER BY p.id_produk DESC");
@@ -56,24 +110,41 @@ $produk_list = $db->query("SELECT p.*, k.nama_kategori FROM produk p JOIN katego
                     <tr>
                         <td class="ps-4 text-muted"><?= $no++ ?></td>
                         <td>
-                            <?php if($p['foto'] && file_exists('../public/uploads/'.$p['foto'])): ?>
-                            <img src="../public/uploads/<?= htmlspecialchars($p['foto']) ?>" alt="" class="rounded-2" style="width:56px;height:56px;object-fit:cover">
+                            <?php
+                            // foto sekarang berupa URL Cloudinary — cukup cek tidak kosong
+                            $fotoUrl = $p['foto'] ?? '';
+                            $isCloudinary = strpos($fotoUrl, 'cloudinary.com') !== false;
+                            $isOldFile    = !$isCloudinary && $fotoUrl && file_exists('../public/uploads/'.$fotoUrl);
+                            ?>
+                            <?php if($isCloudinary): ?>
+                                <img src="<?= htmlspecialchars($fotoUrl) ?>" alt=""
+                                    class="rounded-2" style="width:56px;height:56px;object-fit:cover">
+                            <?php elseif($isOldFile): ?>
+                                <img src="../public/uploads/<?= htmlspecialchars($fotoUrl) ?>" alt=""
+                                    class="rounded-2" style="width:56px;height:56px;object-fit:cover">
                             <?php else: ?>
-                            <div class="rounded-2 d-flex align-items-center justify-content-center bg-light" style="width:56px;height:56px">
-                                <i class="bi bi-image text-muted"></i>
-                            </div>
+                                <div class="rounded-2 d-flex align-items-center justify-content-center bg-light"
+                                    style="width:56px;height:56px">
+                                    <i class="bi bi-image text-muted"></i>
+                                </div>
                             <?php endif; ?>
                         </td>
                         <td><div class="fw-semibold"><?= htmlspecialchars($p['nama_produk']) ?></div></td>
                         <td><span class="badge-kat"><?= htmlspecialchars($p['nama_kategori']) ?></span></td>
-                        <td><div class="text-muted small" style="max-width:200px"><?= htmlspecialchars(substr($p['deskripsi'],0,60)) ?>...</div></td>
+                        <td>
+                            <div class="text-muted small" style="max-width:200px">
+                                <?= htmlspecialchars(substr($p['deskripsi'] ?? '', 0, 60)) ?>...
+                            </div>
+                        </td>
                         <td class="pe-4 text-center">
                             <div class="d-flex gap-2 justify-content-center">
-                                <a href="edit_produk.php?id=<?= $p['id_produk'] ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                <a href="edit_produk.php?id=<?= $p['id_produk'] ?>"
+                                    class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="produk.php?hapus=<?= $p['id_produk'] ?>" class="btn btn-sm btn-outline-danger rounded-pill px-3"
-                                   onclick="return confirm('Yakin hapus produk ini?')">
+                                <a href="produk.php?hapus=<?= $p['id_produk'] ?>"
+                                    class="btn btn-sm btn-outline-danger rounded-pill px-3"
+                                    onclick="return confirm('Yakin hapus produk ini?')">
                                     <i class="bi bi-trash"></i>
                                 </a>
                             </div>
