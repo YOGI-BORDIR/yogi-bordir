@@ -1,18 +1,93 @@
 <?php
-$page_title = 'Edit Produk';
-require_once 'header_admin.php';
-$db = getDB();
+// =====================================================
+// PROSES POST DULUAN sebelum require header_admin.php
+// agar header('Location: ...') masih bisa dipanggil
+// =====================================================
+session_start();
+if(!isset($_SESSION['admin_id'])) {
+    header('Location: login.php');
+    exit;
+}
+require_once '../config/database.php';
 
-$id = (int)($_GET['id'] ?? 0);
+// ── Cloudinary helper (tanpa SDK, pakai HTTP langsung) ──
+function uploadToCloudinary($fileTmpPath, $fileName) {
+    $cloudName = 'dwzvzz5af';
+    $apiKey    = '815678683111228';
+    $apiSecret = 'L6AQtz2C7hUZVhqcBdbUvnj1uYo';
+
+    $timestamp = time();
+    $params    = ['timestamp' => $timestamp];
+    ksort($params);
+    $paramStr  = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    $signature = sha1($paramStr . $apiSecret);
+
+    $url  = "https://api.cloudinary.com/v1_1/{$cloudName}/image/upload";
+    $post = [
+        'file'      => new CURLFile($fileTmpPath, mime_content_type($fileTmpPath), $fileName),
+        'api_key'   => $apiKey,
+        'timestamp' => $timestamp,
+        'signature' => $signature,
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $result = curl_exec($ch);
+    $err    = curl_error($ch);
+    curl_close($ch);
+
+    if($err) return null;
+    $data = json_decode($result, true);
+    return $data['secure_url'] ?? null;
+}
+
+// ── Hapus gambar dari Cloudinary pakai public_id ──
+function deleteFromCloudinary($publicId) {
+    $cloudName = 'dwzvzz5af';
+    $apiKey    = '815678683111228';
+    $apiSecret = 'L6AQtz2C7hUZVhqcBdbUvnj1uYo';
+
+    $timestamp = time();
+    $params    = ['public_id' => $publicId, 'timestamp' => $timestamp];
+    ksort($params);
+    $paramStr  = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    $signature = sha1($paramStr . $apiSecret);
+
+    $url  = "https://api.cloudinary.com/v1_1/{$cloudName}/image/destroy";
+    $post = [
+        'public_id' => $publicId,
+        'api_key'   => $apiKey,
+        'timestamp' => $timestamp,
+        'signature' => $signature,
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_exec($ch);
+    curl_close($ch);
+}
+
+// ── Ambil public_id dari URL Cloudinary ──
+function getPublicIdFromUrl($url) {
+    // URL bentuk: https://res.cloudinary.com/cloud/image/upload/v123456/public_id.ext
+    if(!$url || strpos($url, 'cloudinary.com') === false) return null;
+    $parts = explode('/upload/', $url);
+    if(count($parts) < 2) return null;
+    $path = preg_replace('/^v\d+\//', '', $parts[1]); // hapus versi v123456/
+    return preg_replace('/\.[^.]+$/', '', $path);      // hapus ekstensi
+}
+
+$db    = getDB();
+$id    = (int)($_GET['id'] ?? 0);
+$error = '';
+
 $produk = $db->query("SELECT * FROM produk WHERE id_produk = $id")->fetch_assoc();
 if(!$produk) { header('Location: produk.php'); exit; }
 
-// Ambil semua foto produk
-$foto_list = $db->query("SELECT * FROM produk_foto WHERE id_produk=$id ORDER BY urutan ASC");
-$fotos = [];
-while($f = $foto_list->fetch_assoc()) $fotos[] = $f;
-
-$error = '';
 if($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nama      = trim($_POST['nama_produk'] ?? '');
     $id_kat    = (int)($_POST['id_kategori'] ?? 0);
@@ -24,72 +99,94 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     if(!$nama || !$id_kat) {
         $error = 'Nama produk dan kategori wajib diisi!';
     } else {
-        // Upload foto size chart baru
+
+        // ── Upload foto size chart baru ke Cloudinary ──
         if(isset($_FILES['foto_size_chart']) && $_FILES['foto_size_chart']['error'] === 0) {
             $allowed = ['jpg','jpeg','png','webp'];
             $ext = strtolower(pathinfo($_FILES['foto_size_chart']['name'], PATHINFO_EXTENSION));
             if(in_array($ext, $allowed) && $_FILES['foto_size_chart']['size'] <= 3*1024*1024) {
-                if($foto_sc && file_exists('../public/uploads/'.$foto_sc)) {
-                    unlink('../public/uploads/'.$foto_sc);
-                }
-                $foto_sc = 'sizechart_'.$id.'_'.time().'.'.$ext;
-                move_uploaded_file($_FILES['foto_size_chart']['tmp_name'], '../public/uploads/'.$foto_sc);
+                // Hapus size chart lama dari Cloudinary
+                $oldPid = getPublicIdFromUrl($foto_sc);
+                if($oldPid) deleteFromCloudinary($oldPid);
+
+                $url = uploadToCloudinary($_FILES['foto_size_chart']['tmp_name'], $_FILES['foto_size_chart']['name']);
+                if($url) $foto_sc = $url;
+                else $error = 'Upload size chart ke Cloudinary gagal.';
             }
         }
 
-        // Hapus foto size chart jika diminta
-        if(isset($_POST['hapus_size_chart']) && $foto_sc) {
-            if(file_exists('../public/uploads/'.$foto_sc)) unlink('../public/uploads/'.$foto_sc);
+        // ── Hapus foto size chart jika dicentang ──
+        if(!$error && isset($_POST['hapus_size_chart']) && $foto_sc) {
+            $oldPid = getPublicIdFromUrl($foto_sc);
+            if($oldPid) deleteFromCloudinary($oldPid);
             $foto_sc = '';
         }
 
-        // Hapus foto yang dicentang
-        if(isset($_POST['hapus_foto']) && is_array($_POST['hapus_foto'])) {
+        // ── Hapus foto produk yang dicentang ──
+        if(!$error && isset($_POST['hapus_foto']) && is_array($_POST['hapus_foto'])) {
             foreach($_POST['hapus_foto'] as $id_foto) {
                 $id_foto = (int)$id_foto;
                 $row = $db->query("SELECT nama_file FROM produk_foto WHERE id_foto=$id_foto")->fetch_assoc();
-                if($row && file_exists('../public/uploads/'.$row['nama_file'])) {
-                    unlink('../public/uploads/'.$row['nama_file']);
+                if($row) {
+                    $pid = getPublicIdFromUrl($row['nama_file']);
+                    if($pid) deleteFromCloudinary($pid);
+                    $db->query("DELETE FROM produk_foto WHERE id_foto=$id_foto");
                 }
-                $db->query("DELETE FROM produk_foto WHERE id_foto=$id_foto");
             }
         }
 
-        // Upload foto baru
-        if(isset($_FILES['foto_baru']) && is_array($_FILES['foto_baru']['name'])) {
+        // ── Upload foto baru ke Cloudinary ──
+        if(!$error && isset($_FILES['foto_baru']) && is_array($_FILES['foto_baru']['name'])) {
             $allowed = ['jpg','jpeg','png','webp'];
-            $urutan_max = count($fotos);
+
+            // Hitung urutan dari database (lebih aman dari count($fotos))
+            $result     = $db->query("SELECT COALESCE(MAX(urutan),-1)+1 AS next_urutan FROM produk_foto WHERE id_produk=$id");
+            $row        = $result->fetch_assoc();
+            $urutan_max = (int)$row['next_urutan'];
+
             foreach($_FILES['foto_baru']['name'] as $i => $fname) {
                 if($_FILES['foto_baru']['error'][$i] !== 0) continue;
                 $ext = strtolower(pathinfo($fname, PATHINFO_EXTENSION));
                 if(!in_array($ext, $allowed)) continue;
                 if($_FILES['foto_baru']['size'][$i] > 3*1024*1024) continue;
-                $new_name = 'produk_'.$id.'_'.time().'_'.$i.'.'.$ext;
-                move_uploaded_file($_FILES['foto_baru']['tmp_name'][$i], '../public/uploads/'.$new_name);
+
+                $url = uploadToCloudinary($_FILES['foto_baru']['tmp_name'][$i], $fname);
+                if(!$url) continue;
+
                 $stmt2 = $db->prepare("INSERT INTO produk_foto (id_produk, nama_file, urutan) VALUES (?,?,?)");
-                $stmt2->bind_param("isi", $id, $new_name, $urutan_max);
+                $stmt2->bind_param("isi", $id, $url, $urutan_max);
                 $stmt2->execute();
                 $urutan_max++;
             }
         }
 
-        // Update foto utama dari foto pertama yang ada
-        $first = $db->query("SELECT nama_file FROM produk_foto WHERE id_produk=$id ORDER BY urutan ASC LIMIT 1")->fetch_assoc();
-        $foto_utama = $first ? $first['nama_file'] : ($produk['foto'] ?? '');
+        if(!$error) {
+            // ── Update foto utama dari foto pertama yang tersisa ──
+            $first = $db->query("SELECT nama_file FROM produk_foto WHERE id_produk=$id ORDER BY urutan ASC LIMIT 1")->fetch_assoc();
+            $foto_utama = $first ? $first['nama_file'] : ($produk['foto'] ?? '');
 
-        $stmt = $db->prepare("UPDATE produk SET id_kategori=?, nama_produk=?, deskripsi=?, ukuran=?, warna=?, foto_size_chart=?, foto=? WHERE id_produk=?");
-        $stmt->bind_param("issssssi", $id_kat, $nama, $deskripsi, $ukuran, $warna, $foto_sc, $foto_utama, $id);
-        $stmt->execute();
-        header('Location: produk.php?msg=edit');
-        exit;
+            $stmt = $db->prepare("UPDATE produk SET id_kategori=?, nama_produk=?, deskripsi=?, ukuran=?, warna=?, foto_size_chart=?, foto=? WHERE id_produk=?");
+            $stmt->bind_param("issssssi", $id_kat, $nama, $deskripsi, $ukuran, $warna, $foto_sc, $foto_utama, $id);
+            if(!$stmt->execute()) {
+                $error = 'Gagal update produk: ' . $stmt->error;
+            } else {
+                header('Location: produk.php?msg=edit');
+                exit;
+            }
+        }
     }
 }
 
+// ── Baru tampilkan HTML ──
+$page_title = 'Edit Produk';
+require_once 'header_admin.php';
+
 $kategori_list = $db->query("SELECT * FROM kategori ORDER BY nama_kategori");
-// Refresh foto list setelah POST
-$foto_list2 = $db->query("SELECT * FROM produk_foto WHERE id_produk=$id ORDER BY urutan ASC");
+
+// Refresh foto list
+$foto_list = $db->query("SELECT * FROM produk_foto WHERE id_produk=$id ORDER BY urutan ASC");
 $fotos = [];
-while($f = $foto_list2->fetch_assoc()) $fotos[] = $f;
+while($f = $foto_list->fetch_assoc()) $fotos[] = $f;
 ?>
 
 <?php if($error): ?>
@@ -159,7 +256,11 @@ while($f = $foto_list2->fetch_assoc()) $fotos[] = $f;
                 <div class="d-flex flex-wrap gap-3 mb-3">
                     <?php foreach($fotos as $fi => $f): ?>
                     <div class="position-relative">
-                        <img src="../public/uploads/<?= htmlspecialchars($f['nama_file']) ?>"
+                        <?php
+                        // nama_file sekarang berupa URL Cloudinary
+                        $imgSrc = htmlspecialchars($f['nama_file']);
+                        ?>
+                        <img src="<?= $imgSrc ?>"
                             class="rounded-3" style="width:100px;height:100px;object-fit:cover">
                         <?php if($fi === 0): ?>
                         <span class="badge position-absolute top-0 start-0 m-1"
@@ -195,9 +296,9 @@ while($f = $foto_list2->fetch_assoc()) $fotos[] = $f;
                 <h6 class="fw-bold mb-1"><i class="bi bi-table me-1"></i>Foto Size Chart</h6>
                 <p class="text-muted small mb-3">Upload foto tabel ukuran khusus produk ini.</p>
 
-                <?php if(!empty($produk['foto_size_chart']) && file_exists('../public/uploads/'.$produk['foto_size_chart'])): ?>
+                <?php if(!empty($produk['foto_size_chart'])): ?>
                 <div class="mb-3">
-                    <img src="../public/uploads/<?= htmlspecialchars($produk['foto_size_chart']) ?>"
+                    <img src="<?= htmlspecialchars($produk['foto_size_chart']) ?>"
                         class="img-fluid rounded-3" style="max-height:200px;object-fit:contain">
                     <div class="mt-2">
                         <label class="d-flex align-items-center gap-2 text-danger small" style="cursor:pointer">
