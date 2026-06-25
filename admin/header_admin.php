@@ -1,7 +1,8 @@
 <?php
-ob_start();
+ob_start(); // Tahan semua output agar header() masih bisa dipanggil
 
-session_start();
+// session_start() sudah dipanggil di masing-masing file (produk.php, tambah_produk.php, dll)
+// jadi tidak dipanggil lagi di sini untuk menghindari "session already active"
 if(!isset($_SESSION['admin_id'])) {
     header('Location: login.php');
     exit;
@@ -95,7 +96,7 @@ require_once '../config/database.php';
 <!-- MAIN -->
 <div class="main-content">
     <div class="topbar">
-        <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items: center; gap-3">
             <button class="btn btn-sm btn-outline-secondary d-md-none" id="toggleSidebar">
                 <i class="bi bi-list"></i>
             </button>
