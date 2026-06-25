@@ -1,52 +1,10 @@
 <?php
-// =====================================================
-// PROSES POST DULUAN sebelum require header_admin.php
-// agar header('Location: ...') masih bisa dipanggil
-// =====================================================
-session_start();
-if(!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
-    exit;
-}
-require_once '../config/database.php';
-
-// ── Cloudinary helper (tanpa SDK, pakai HTTP langsung) ──
-function uploadToCloudinary($fileTmpPath, $fileName) {
-    $cloudName = 'dwzvzz5af';
-    $apiKey    = '815678683111228';
-    $apiSecret = 'L6AQtz2C7hUZVhqcBdbUvnj1uYo';
-
-    $timestamp = time();
-    $params    = ['timestamp' => $timestamp];
-    ksort($params);
-    $paramStr  = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
-    $signature = sha1($paramStr . $apiSecret);
-
-    $url  = "https://api.cloudinary.com/v1_1/{$cloudName}/image/upload";
-    $post = [
-        'file'      => new CURLFile($fileTmpPath, mime_content_type($fileTmpPath), $fileName),
-        'api_key'   => $apiKey,
-        'timestamp' => $timestamp,
-        'signature' => $signature,
-    ];
-
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $result = curl_exec($ch);
-    $err    = curl_error($ch);
-    curl_close($ch);
-
-    if($err) return null;
-    $data = json_decode($result, true);
-    return $data['secure_url'] ?? null; // kembalikan URL Cloudinary
-}
+$page_title = 'Tambah Produk';
+require_once 'header_admin.php';
+$db = getDB();
 
 $error = '';
-
 if($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $db        = getDB();
     $nama      = trim($_POST['nama_produk'] ?? '');
     $id_kat    = (int)($_POST['id_kategori'] ?? 0);
     $deskripsi = trim($_POST['deskripsi'] ?? '');
@@ -57,63 +15,50 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     if(!$nama || !$id_kat) {
         $error = 'Nama produk dan kategori wajib diisi!';
     } else {
-        // ── Upload foto size chart ke Cloudinary ──
+        // Upload foto size chart
         if(isset($_FILES['foto_size_chart']) && $_FILES['foto_size_chart']['error'] === 0) {
             $allowed = ['jpg','jpeg','png','webp'];
             $ext = strtolower(pathinfo($_FILES['foto_size_chart']['name'], PATHINFO_EXTENSION));
             if(in_array($ext, $allowed) && $_FILES['foto_size_chart']['size'] <= 3*1024*1024) {
-                $url = uploadToCloudinary($_FILES['foto_size_chart']['tmp_name'], $_FILES['foto_size_chart']['name']);
-                if($url) $foto_sc = $url;
-                else $error = 'Upload size chart ke Cloudinary gagal.';
+                $foto_sc = 'sizechart_'.time().'_'.rand(100,999).'.'.$ext;
+                move_uploaded_file($_FILES['foto_size_chart']['tmp_name'], '../public/uploads/'.$foto_sc);
             }
         }
 
-        if(!$error) {
-            // ── Insert produk ──
-            $stmt = $db->prepare("INSERT INTO produk (id_kategori, nama_produk, deskripsi, ukuran, warna, foto_size_chart, foto) VALUES (?,?,?,?,?,?,?)");
-            $foto_utama = '';
-            $stmt->bind_param("issssss", $id_kat, $nama, $deskripsi, $ukuran, $warna, $foto_sc, $foto_utama);
-            if(!$stmt->execute()) {
-                $error = 'Gagal menyimpan produk: ' . $stmt->error;
-            } else {
-                $new_id = $db->insert_id;
+        // Insert produk
+        $stmt = $db->prepare("INSERT INTO produk (id_kategori, nama_produk, deskripsi, ukuran, warna, foto_size_chart, foto) VALUES (?,?,?,?,?,?,?)");
+        $foto_utama = '';
+        $stmt->bind_param("issssss", $id_kat, $nama, $deskripsi, $ukuran, $warna, $foto_sc, $foto_utama);
+        $stmt->execute();
+        $new_id = $db->insert_id;
 
-                // ── Upload multiple foto produk ke Cloudinary ──
-                if(isset($_FILES['foto_produk']) && is_array($_FILES['foto_produk']['name'])) {
-                    $allowed = ['jpg','jpeg','png','webp'];
-                    $urutan  = 0;
-                    foreach($_FILES['foto_produk']['name'] as $i => $fname) {
-                        if($_FILES['foto_produk']['error'][$i] !== 0) continue;
-                        $ext = strtolower(pathinfo($fname, PATHINFO_EXTENSION));
-                        if(!in_array($ext, $allowed)) continue;
-                        if($_FILES['foto_produk']['size'][$i] > 3*1024*1024) continue;
-
-                        $url = uploadToCloudinary($_FILES['foto_produk']['tmp_name'][$i], $fname);
-                        if(!$url) continue; // skip kalau upload gagal
-
-                        $stmt2 = $db->prepare("INSERT INTO produk_foto (id_produk, nama_file, urutan) VALUES (?,?,?)");
-                        $stmt2->bind_param("isi", $new_id, $url, $urutan);
-                        $stmt2->execute();
-
-                        // Set foto utama dari foto pertama
-                        if($urutan === 0) {
-                            $db->query("UPDATE produk SET foto='".mysqli_real_escape_string($db, $url)."' WHERE id_produk=$new_id");
-                        }
-                        $urutan++;
-                    }
+        // Upload multiple foto produk
+        if(isset($_FILES['foto_produk']) && is_array($_FILES['foto_produk']['name'])) {
+            $allowed = ['jpg','jpeg','png','webp'];
+            $urutan = 0;
+            foreach($_FILES['foto_produk']['name'] as $i => $fname) {
+                if($_FILES['foto_produk']['error'][$i] !== 0) continue;
+                $ext = strtolower(pathinfo($fname, PATHINFO_EXTENSION));
+                if(!in_array($ext, $allowed)) continue;
+                if($_FILES['foto_produk']['size'][$i] > 3*1024*1024) continue;
+                $new_name = 'produk_'.$new_id.'_'.time().'_'.$urutan.'.'.$ext;
+                move_uploaded_file($_FILES['foto_produk']['tmp_name'][$i], '../public/uploads/'.$new_name);
+                $stmt2 = $db->prepare("INSERT INTO produk_foto (id_produk, nama_file, urutan) VALUES (?,?,?)");
+                $stmt2->bind_param("isi", $new_id, $new_name, $urutan);
+                $stmt2->execute();
+                // Set foto utama dari foto pertama
+                if($urutan === 0) {
+                    $db->query("UPDATE produk SET foto='$new_name' WHERE id_produk=$new_id");
                 }
-
-                header('Location: produk.php?msg=tambah');
-                exit;
+                $urutan++;
             }
         }
+
+        header('Location: produk.php?msg=tambah');
+        exit;
     }
 }
 
-// ── Baru tampilkan HTML ──
-$page_title = 'Tambah Produk';
-require_once 'header_admin.php';
-$db = getDB();
 $kategori_list = $db->query("SELECT * FROM kategori ORDER BY nama_kategori");
 ?>
 
@@ -159,14 +104,18 @@ $kategori_list = $db->query("SELECT * FROM kategori ORDER BY nama_kategori");
                         placeholder="Deskripsikan produk ini..."><?= htmlspecialchars($_POST['deskripsi'] ?? '') ?></textarea>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold"><i class="bi bi-rulers me-1"></i>Ukuran Tersedia</label>
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-rulers me-1"></i>Ukuran Tersedia
+                    </label>
                     <input type="text" name="ukuran" class="form-control rounded-3"
                         placeholder="Contoh: S, M, L, XL, XXL"
                         value="<?= htmlspecialchars($_POST['ukuran'] ?? '') ?>">
                     <div class="form-text">Pisahkan dengan koma</div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold"><i class="bi bi-palette me-1"></i>Warna Tersedia</label>
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-palette me-1"></i>Warna Tersedia
+                    </label>
                     <input type="text" name="warna" class="form-control rounded-3"
                         placeholder="Contoh: Hitam, Putih, Navy, Merah"
                         value="<?= htmlspecialchars($_POST['warna'] ?? '') ?>">
@@ -191,7 +140,9 @@ $kategori_list = $db->query("SELECT * FROM kategori ORDER BY nama_kategori");
         <!-- FOTO SIZE CHART -->
         <div class="card border-0 rounded-4 shadow-sm mb-4">
             <div class="card-body p-4">
-                <h6 class="fw-bold mb-1"><i class="bi bi-table me-1"></i>Foto Size Chart</h6>
+                <h6 class="fw-bold mb-1">
+                    <i class="bi bi-table me-1"></i>Foto Size Chart
+                </h6>
                 <p class="text-muted small mb-3">Upload foto tabel ukuran khusus untuk produk ini.</p>
                 <input type="file" name="foto_size_chart" class="form-control rounded-3"
                     accept="image/jpeg,image/png,image/webp" id="scInput" onchange="previewSC(event)">
@@ -243,4 +194,4 @@ function previewSC(e) {
 }
 </script>
 
-<?php require_once 'footer_admin.php'; ?>
+<?php require_once 'footer_admin.php'; $db->close(); ?>
