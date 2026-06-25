@@ -1,8 +1,12 @@
 <?php
 ob_start(); // Tahan semua output agar header() masih bisa dipanggil
 
-// session_start() sudah dipanggil di masing-masing file (produk.php, tambah_produk.php, dll)
-// jadi tidak dipanggil lagi di sini untuk menghindari "session already active"
+// Hanya panggil session_start() kalau belum aktif
+// Ini mencegah "session already active" di file yang sudah punya session_start() sendiri
+if(session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if(!isset($_SESSION['admin_id'])) {
     header('Location: login.php');
     exit;
