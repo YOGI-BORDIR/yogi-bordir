@@ -6,8 +6,12 @@ $db = getDB();
 // Helper: resolve URL foto (Cloudinary atau lokal)
 function fotoUrl($nama) {
     if (!$nama) return '';
-    if (strpos($nama, 'http') === 0) return $nama; // sudah URL Cloudinary
-    return 'public/uploads/' . $nama; // file lokal lama
+    if (strpos($nama, 'http') === 0) return $nama; // sudah URL Cloudinary, aman dipakai langsung
+    $path = 'public/uploads/' . $nama;
+    // Railway filesystem ephemeral — file lokal lama bisa sudah hilang setelah redeploy.
+    // Kalau filenya nggak ada, anggap kosong supaya fallback placeholder yang jalan.
+    if (file_exists($path)) return $path;
+    return '';
 }
 
 $b = $db->query("SELECT * FROM beranda_konten LIMIT 1")->fetch_assoc();
@@ -129,7 +133,10 @@ $produk_unggulan = $db->query("
                 if (!empty($p['semua_foto'])) {
                     foreach (explode(',', $p['semua_foto']) as $f) {
                         $f = trim($f);
-                        if ($f) $semuaFotoResolved[] = fotoUrl($f);
+                        if ($f) {
+                            $resolved = fotoUrl($f);
+                            if ($resolved) $semuaFotoResolved[] = $resolved;
+                        }
                     }
                 }
                 $semuaFotoJson = implode(',', $semuaFotoResolved);
