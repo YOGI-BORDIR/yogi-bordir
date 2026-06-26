@@ -3,13 +3,19 @@ $page_title = 'Beranda';
 require_once 'includes/header.php';
 $db = getDB();
 
+// Helper: resolve URL foto (Cloudinary atau lokal)
+function fotoUrl($nama) {
+    if (!$nama) return '';
+    if (strpos($nama, 'http') === 0) return $nama; // sudah URL Cloudinary
+    return 'public/uploads/' . $nama; // file lokal lama
+}
+
 $b = $db->query("SELECT * FROM beranda_konten LIMIT 1")->fetch_assoc();
 
 $hero_badge   = $b['hero_badge']    ?? '✦ Seni Bordir Komputer Purwokerto';
 $hero_judul_1 = $b['hero_judul_1']  ?? 'Kualitas Jahitan';
 $hero_judul_2 = $b['hero_judul_2']  ?? 'Tanpa Kompromi.';
 $hero_desk    = $b['hero_deskripsi'] ?? 'Solusi bordir premium di Purwokerto untuk segala jenis kebutuhan sandang Anda.';
-
 
 $fitur = [
     ['icon' => $b['fitur1_icon'] ?? 'bi-patch-check-fill', 'judul' => $b['fitur1_judul'] ?? 'Mesin Bordir Modern',      'desk' => $b['fitur1_desk'] ?? 'Menggunakan mesin bordir komputer terkini untuk hasil presisi dan konsisten.'],
@@ -18,16 +24,16 @@ $fitur = [
     ['icon' => $b['fitur4_icon'] ?? 'bi-people-fill',      'judul' => $b['fitur4_judul'] ?? 'Konsultasi Desain Gratis', 'desk' => $b['fitur4_desk'] ?? 'Tim kami siap membantu mewujudkan desain bordir sesuai keinginan Anda.'],
 ];
 
-// Foto keunggulan — cek file upload dulu, fallback ke Unsplash
-if (!empty($b['keunggulan_foto']) && file_exists('public/uploads/' . $b['keunggulan_foto'])) {
-    $foto_keunggulan = 'public/uploads/' . $b['keunggulan_foto'];
-} else {
+// Foto keunggulan — cek Cloudinary URL dulu, fallback ke lokal, lalu ke Unsplash
+$foto_keunggulan = fotoUrl($b['keunggulan_foto'] ?? '');
+if (!$foto_keunggulan) {
     $foto_keunggulan = 'https://images.unsplash.com/photo-1544441893-675973e31985?w=800&q=70';
 }
 
 // Background hero
-if (!empty($b['hero_bg_file'])) {
-    $bg_style = "url('public/uploads/" . htmlspecialchars($b['hero_bg_file']) . "')";
+$hero_bg_resolved = fotoUrl($b['hero_bg_file'] ?? '');
+if ($hero_bg_resolved) {
+    $bg_style = "url('" . htmlspecialchars($hero_bg_resolved) . "')";
 } elseif (!empty($b['hero_bg_url'])) {
     $bg_style = "url('" . htmlspecialchars($b['hero_bg_url']) . "')";
 } else {
@@ -46,15 +52,6 @@ $produk_unggulan = $db->query("
 ?>
 
 <!-- HERO -->
-<?php
-if (!empty($b['hero_bg_file']) && file_exists('public/uploads/' . $b['hero_bg_file'])) {
-    $bg_style = "url('public/uploads/" . htmlspecialchars($b['hero_bg_file']) . "')";
-} elseif (!empty($b['hero_bg_url'])) {
-    $bg_style = "url('" . htmlspecialchars($b['hero_bg_url']) . "')";
-} else {
-    $bg_style = "url('https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=1600&q=60')";
-}
-?>
 <section class="hero text-white" style="--hero-bg: <?= $bg_style ?>;">
     <div class="container hero-content">
         <div class="row align-items-center min-vh-100 py-5">
@@ -124,14 +121,23 @@ if (!empty($b['hero_bg_file']) && file_exists('public/uploads/' . $b['hero_bg_fi
             <p class="text-muted">Kami melayani berbagai media pakaian dengan detail bordir berkualitas tinggi.</p>
         </div>
         <div class="row g-4">
-            <?php while ($p = $produk_unggulan->fetch_assoc()): ?>
+            <?php while ($p = $produk_unggulan->fetch_assoc()):
+                $fotoUtama = fotoUrl($p['foto'] ?? '');
+                if (!$fotoUtama) $fotoUtama = 'https://images.unsplash.com/photo-1594932224031-44f00db58ce8?w=600&q=60';
+
+                $semuaFotoResolved = [];
+                if (!empty($p['semua_foto'])) {
+                    foreach (explode(',', $p['semua_foto']) as $f) {
+                        $f = trim($f);
+                        if ($f) $semuaFotoResolved[] = fotoUrl($f);
+                    }
+                }
+                $semuaFotoJson = implode(',', $semuaFotoResolved);
+                $fotoSCResolved = fotoUrl($p['foto_size_chart'] ?? '');
+            ?>
                 <div class="col-sm-6 col-lg-4">
                     <div class="card card-produk">
-                        <?php if ($p['foto'] && file_exists('public/uploads/' . $p['foto'])): ?>
-                            <img src="public/uploads/<?= htmlspecialchars($p['foto']) ?>" alt="<?= htmlspecialchars($p['nama_produk']) ?>">
-                        <?php else: ?>
-                            <img src="https://images.unsplash.com/photo-1594932224031-44f00db58ce8?w=600&q=60" alt="Produk">
-                        <?php endif; ?>
+                        <img src="<?= htmlspecialchars($fotoUtama) ?>" alt="<?= htmlspecialchars($p['nama_produk']) ?>">
                         <div class="card-body p-4">
                             <span class="badge-cat mb-2 d-inline-block"><?= htmlspecialchars($p['nama_kategori']) ?></span>
                             <h5 class="fw-bold mb-2"><?= htmlspecialchars($p['nama_produk']) ?></h5>
@@ -140,11 +146,11 @@ if (!empty($b['hero_bg_file']) && file_exists('public/uploads/' . $b['hero_bg_fi
                                 onclick="lihatDetail(
             '<?= addslashes(htmlspecialchars($p['nama_produk'])) ?>',
             '<?= addslashes(htmlspecialchars($p['deskripsi'])) ?>',
-            '<?= addslashes($p['semua_foto'] ?? ($p['foto'] ?? '')) ?>',
+            '<?= addslashes($semuaFotoJson) ?>',
             '<?= addslashes(htmlspecialchars($p['ukuran'] ?? '')) ?>',
             '<?= addslashes(htmlspecialchars($p['warna'] ?? '')) ?>',
             '<?= addslashes(htmlspecialchars($p['nama_kategori'])) ?>',
-            '<?= addslashes($p['foto_size_chart'] ?? '') ?>'
+            '<?= addslashes($fotoSCResolved) ?>'
         )">
                                 <i class="bi bi-eye me-1"></i>Detail
                             </button>
@@ -158,8 +164,6 @@ if (!empty($b['hero_bg_file']) && file_exists('public/uploads/' . $b['hero_bg_fi
         </div>
     </div>
 </section>
-
-
 
 
 <!-- MODAL DETAIL (sama persis dengan galeri.php) -->
@@ -247,18 +251,19 @@ if (!empty($b['hero_bg_file']) && file_exists('public/uploads/' . $b['hero_bg_fi
         document.getElementById('modalDeskripsi').textContent = deskripsi || '-';
         document.getElementById('modalKategori').textContent = kategori;
 
+        // URL sudah di-resolve di PHP (Cloudinary full URL atau path lokal), tinggal pakai langsung
         allFotos = [];
         if (semuaFoto && semuaFoto.trim()) {
             semuaFoto.split(',').filter(f => f.trim()).forEach(f => {
                 allFotos.push({
-                    src: 'public/uploads/' + f.trim(),
+                    src: f.trim(),
                     isSC: false
                 });
             });
         }
         if (fotoSC && fotoSC.trim()) {
             allFotos.push({
-                src: 'public/uploads/' + fotoSC.trim(),
+                src: fotoSC.trim(),
                 isSC: true
             });
         }
@@ -381,7 +386,6 @@ if (!empty($b['hero_bg_file']) && file_exists('public/uploads/' . $b['hero_bg_fi
             if (e.key === 'Escape') tutupLightbox();
         }
     });
-</script>
 </script>
 <?php require_once 'includes/footer.php';
 $db->close(); ?>
