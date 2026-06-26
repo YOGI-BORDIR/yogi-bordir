@@ -14,6 +14,13 @@ $sql = "SELECT p.*, k.nama_kategori,
 if ($filter_kat > 0) $sql .= " WHERE p.id_kategori = $filter_kat";
 $sql .= " GROUP BY p.id_produk ORDER BY p.id_produk DESC";
 $produk_list = $db->query($sql);
+
+// Helper: resolve URL foto (Cloudinary atau lokal)
+function fotoUrl($nama) {
+    if(!$nama) return '';
+    if(strpos($nama, 'http') === 0) return $nama; // sudah URL Cloudinary
+    return 'public/uploads/' . $nama; // file lokal lama
+}
 ?>
 
 <style>
@@ -22,14 +29,12 @@ $produk_list = $db->query($sql);
         height: auto;
         overflow-y: auto;
     }
-
     #modalDetail .modal-content {
         max-height: 90vh;
         overflow: hidden;
         display: flex;
         flex-direction: column;
     }
-
     #modalDetail .modal-body {
         flex: 1;
         overflow-y: auto;
@@ -120,27 +125,38 @@ $produk_list = $db->query($sql);
                     <p class="text-muted mt-3">Belum ada produk di kategori ini.</p>
                 </div>
             <?php else: ?>
-                <?php while ($p = $produk_list->fetch_assoc()): ?>
+                <?php while ($p = $produk_list->fetch_assoc()):
+                    $fotoUtama = fotoUrl($p['foto']);
+                    if(!$fotoUtama) $fotoUtama = 'https://images.unsplash.com/photo-1594932224031-44f00db58ce8?w=600&q=60';
+
+                    // Resolve semua foto — bisa mix Cloudinary + lokal
+                    $semuaFotoResolved = [];
+                    if($p['semua_foto']) {
+                        foreach(explode(',', $p['semua_foto']) as $f) {
+                            $f = trim($f);
+                            if($f) $semuaFotoResolved[] = fotoUrl($f);
+                        }
+                    }
+                    $semuaFotoJson = implode(',', $semuaFotoResolved);
+
+                    $fotoSCResolved = fotoUrl($p['foto_size_chart'] ?? '');
+                ?>
                     <div class="col-sm-6 col-lg-4">
                         <div class="card card-produk d-flex flex-column h-100">
-                            <?php if ($p['foto'] && file_exists('public/uploads/' . $p['foto'])): ?>
-                                <img src="public/uploads/<?= htmlspecialchars($p['foto']) ?>" alt="<?= htmlspecialchars($p['nama_produk']) ?>">
-                            <?php else: ?>
-                                <img src="https://images.unsplash.com/photo-1594932224031-44f00db58ce8?w=600&q=60" alt="Produk">
-                            <?php endif; ?>
+                            <img src="<?= htmlspecialchars($fotoUtama) ?>" alt="<?= htmlspecialchars($p['nama_produk']) ?>">
                             <div class="card-body p-4 d-flex flex-column">
                                 <h5 class="fw-bold mb-2"><?= htmlspecialchars($p['nama_produk']) ?></h5>
                                 <p class="text-muted small mb-3" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"><?= htmlspecialchars($p['deskripsi']) ?></p>
                                 <button class="btn btn-outline-hijau btn-sm rounded-pill w-100 mt-auto"
                                     onclick="lihatDetail(
-                                '<?= addslashes(htmlspecialchars($p['nama_produk'])) ?>',
-                                '<?= addslashes(htmlspecialchars($p['deskripsi'])) ?>',
-                                '<?= addslashes($p['semua_foto'] ?? ($p['foto'] ?? '')) ?>',
-                                '<?= addslashes(htmlspecialchars($p['ukuran'] ?? '')) ?>',
-                                '<?= addslashes(htmlspecialchars($p['warna'] ?? '')) ?>',
-                                '<?= addslashes(htmlspecialchars($p['nama_kategori'])) ?>',
-                                '<?= addslashes($p['foto_size_chart'] ?? '') ?>'
-                            )">
+                                        '<?= addslashes(htmlspecialchars($p['nama_produk'])) ?>',
+                                        '<?= addslashes(htmlspecialchars($p['deskripsi'])) ?>',
+                                        '<?= addslashes($semuaFotoJson) ?>',
+                                        '<?= addslashes(htmlspecialchars($p['ukuran'] ?? '')) ?>',
+                                        '<?= addslashes(htmlspecialchars($p['warna'] ?? '')) ?>',
+                                        '<?= addslashes(htmlspecialchars($p['nama_kategori'])) ?>',
+                                        '<?= addslashes($fotoSCResolved) ?>'
+                                    )">
                                     <i class="bi bi-eye me-1"></i>Detail
                                 </button>
                             </div>
@@ -188,25 +204,20 @@ $produk_list = $db->query($sql);
                         <div id="thumbContainer" class="d-flex flex-wrap gap-2"></div>
                     </div>
 
-                    <!-- INFO: urutan Ukuran → Warna → Deskripsi -->
+                    <!-- INFO -->
                     <div class="col-md-7">
-                        <!-- UKURAN -->
                         <div id="sectionUkuran" class="mb-3">
                             <h6 class="fw-bold mb-2" style="font-size:.85rem;color:#2d5a27">
                                 <i class="bi bi-rulers me-1"></i>Ukuran Tersedia
                             </h6>
                             <div id="modalUkuran" class="d-flex flex-wrap gap-2"></div>
                         </div>
-
-                        <!-- WARNA -->
                         <div id="sectionWarna" class="mb-3">
                             <h6 class="fw-bold mb-2" style="font-size:.85rem;color:#2d5a27">
                                 <i class="bi bi-palette me-1"></i>Warna Tersedia
                             </h6>
                             <div id="modalWarna" class="d-flex flex-wrap gap-2"></div>
                         </div>
-
-                        <!-- DESKRIPSI -->
                         <div id="sectionDeskripsi" class="mb-2">
                             <h6 class="fw-bold mb-2" style="font-size:.85rem;color:#2d5a27">
                                 <i class="bi bi-info-circle me-1"></i>Deskripsi Produk
@@ -241,9 +252,7 @@ $produk_list = $db->query($sql);
 
 <script>
     const noWA = '<?= $kontak['no_whatsapp'] ?? '' ?>';
-    let allFotos = [],
-        currentIdx = 0,
-        lightboxIdx = 0;
+    let allFotos = [], currentIdx = 0, lightboxIdx = 0;
 
     function lihatDetail(nama, deskripsi, semuaFoto, ukuran, warna, kategori, fotoSC) {
         document.getElementById('modalNama').textContent = nama;
@@ -252,24 +261,16 @@ $produk_list = $db->query($sql);
 
         allFotos = [];
         if (semuaFoto && semuaFoto.trim()) {
+            // URL sudah di-resolve di PHP, langsung pakai
             semuaFoto.split(',').filter(f => f.trim()).forEach(f => {
-                allFotos.push({
-                    src: 'public/uploads/' + f.trim(),
-                    isSC: false
-                });
+                allFotos.push({ src: f.trim(), isSC: false });
             });
         }
         if (fotoSC && fotoSC.trim()) {
-            allFotos.push({
-                src: 'public/uploads/' + fotoSC.trim(),
-                isSC: true
-            });
+            allFotos.push({ src: fotoSC.trim(), isSC: true });
         }
         if (allFotos.length === 0) {
-            allFotos.push({
-                src: 'https://images.unsplash.com/photo-1594932224031-44f00db58ce8?w=600&q=60',
-                isSC: false
-            });
+            allFotos.push({ src: 'https://images.unsplash.com/photo-1594932224031-44f00db58ce8?w=600&q=60', isSC: false });
         }
 
         currentIdx = 0;
@@ -294,18 +295,12 @@ $produk_list = $db->query($sql);
                 b.style.cssText = 'border-color:#2d5a27!important;color:#2d5a27;font-size:.8rem;cursor:pointer;transition:all .2s';
                 b.textContent = u;
                 b.onclick = () => {
-                    document.querySelectorAll('#modalUkuran span').forEach(el => {
-                        el.style.background = '';
-                        el.style.color = '#2d5a27';
-                    });
-                    b.style.background = '#2d5a27';
-                    b.style.color = 'white';
+                    document.querySelectorAll('#modalUkuran span').forEach(el => { el.style.background=''; el.style.color='#2d5a27'; });
+                    b.style.background = '#2d5a27'; b.style.color = 'white';
                 };
                 ukuranEl.appendChild(b);
             });
-        } else {
-            secUkuran.style.display = 'none';
-        }
+        } else { secUkuran.style.display = 'none'; }
 
         // WARNA
         const warnaEl = document.getElementById('modalWarna');
@@ -313,30 +308,19 @@ $produk_list = $db->query($sql);
         warnaEl.innerHTML = '';
         if (warna && warna.trim()) {
             secWarna.style.display = 'block';
-            const warnaArr = warna.split(',').map(w => w.trim()).filter(w => w);
-            warnaArr.forEach((w, i) => {
+            warna.split(',').map(w => w.trim()).filter(w => w).forEach((w, i) => {
                 const b = document.createElement('span');
                 b.className = 'px-3 py-1 rounded-pill border fw-semibold';
                 b.style.cssText = 'border-color:#2d5a27!important;color:#2d5a27;font-size:.8rem;cursor:pointer;transition:all .2s';
                 b.textContent = w;
                 b.onclick = () => {
-                    document.querySelectorAll('#modalWarna span').forEach(el => {
-                        el.style.background = '';
-                        el.style.color = '#2d5a27';
-                    });
-                    b.style.background = '#2d5a27';
-                    b.style.color = 'white';
-                    // Pindah ke foto sesuai index warna
-                    if (i < allFotos.length) {
-                        currentIdx = i;
-                        renderFoto(i);
-                    }
+                    document.querySelectorAll('#modalWarna span').forEach(el => { el.style.background=''; el.style.color='#2d5a27'; });
+                    b.style.background = '#2d5a27'; b.style.color = 'white';
+                    if (i < allFotos.length) { currentIdx = i; renderFoto(i); }
                 };
                 warnaEl.appendChild(b);
             });
-        } else {
-            secWarna.style.display = 'none';
-        }
+        } else { secWarna.style.display = 'none'; }
 
         const modalEl = document.getElementById('modalDetail');
         const existingModal = bootstrap.Modal.getInstance(modalEl);
@@ -366,11 +350,8 @@ $produk_list = $db->query($sql);
             const img = document.createElement('img');
             img.src = f.src;
             img.className = 'rounded-2 w-100 h-100';
-            img.style.cssText = 'object-fit:cover;cursor:pointer;border:2px solid ' + (i === 0 ? '#2d5a27' : '#ddd') + ';opacity:' + (i === 0 ? '1' : '0.6') + ';transition:.2s';
-            img.onclick = () => {
-                currentIdx = i;
-                renderFoto(i);
-            };
+            img.style.cssText = 'object-fit:cover;cursor:pointer;border:2px solid ' + (i===0?'#2d5a27':'#ddd') + ';opacity:'+(i===0?'1':'0.6')+';transition:.2s';
+            img.onclick = () => { currentIdx = i; renderFoto(i); };
             if (f.isSC) {
                 const badge = document.createElement('span');
                 badge.style.cssText = 'position:absolute;bottom:2px;left:2px;background:#2d5a27;color:white;font-size:.55rem;padding:1px 4px;border-radius:3px;pointer-events:none';
@@ -395,9 +376,7 @@ $produk_list = $db->query($sql);
         document.getElementById('lightboxOverlay').style.display = 'flex';
     }
 
-    function tutupLightbox() {
-        document.getElementById('lightboxOverlay').style.display = 'none';
-    }
+    function tutupLightbox() { document.getElementById('lightboxOverlay').style.display = 'none'; }
 
     function navigasiLightbox(arah) {
         lightboxIdx = (lightboxIdx + arah + allFotos.length) % allFotos.length;
@@ -457,14 +436,11 @@ $produk_list = $db->query($sql);
     });
 
     let touchStartX = 0;
-    document.getElementById('modalFoto')?.addEventListener('touchstart', e => {
-        touchStartX = e.touches[0].clientX;
-    });
+    document.getElementById('modalFoto')?.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
     document.getElementById('modalFoto')?.addEventListener('touchend', e => {
         const diff = touchStartX - e.changedTouches[0].clientX;
         if (Math.abs(diff) > 40) navigasiFoto(diff > 0 ? 1 : -1);
     });
 </script>
 
-<?php require_once 'includes/footer.php';
-$db->close(); ?>
+<?php require_once 'includes/footer.php'; $db->close(); ?>
